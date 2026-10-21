@@ -125,6 +125,14 @@ Macierz pomyłek (wiersze: stan faktyczny, kolumny: predykcja): 833 trafnie „z
 
 Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,642), co wskazuje, że model i wybór progu nie przeuczyły się na zbiorze walidacyjnym. Różnice mieszczą się w przedziałach niepewności. Wyniki wynikają z założeń kosztowych opisanych wyżej i nie zostały zweryfikowane w praktyce.
 
+## Interpretacja modelu
+
+Największy wpływ zmniejszający ryzyko odejścia mają: długi staż (`tenure`), umowa dwuletnia, internet DSL oraz brak internetu. Największy wpływ zwiększający ryzyko mają: internet światłowodowy (Fiber optic), umowa miesięczna oraz wyższy `TotalCharges`. Przy równych pozostałych cechach umowa miesięczna zwiększa szanse odejścia ok. 3,9 raza wobec dwuletniej, a Fiber ok. 3,7 raza wobec DSL.
+
+Cechy, które w EDA wyglądały na silne, mają w modelu mniejszy samodzielny wpływ, bo ich efekt jest w dużej mierze wyjaśniony przez umowę, staż i rodzaj internetu: płatność elektronicznym czekiem (ok. 1,5 raza wyższe szanse wobec karty kredytowej), brak OnlineSecurity (ok. 1,4 raza) i brak TechSupport (ok. 1,3 raza), a także bycie seniorem (ok. 1,15 raza) i brak dzieci na utrzymaniu (ok. 1,2 raza). Cechy te nadal przydają się do wskazywania segmentów ryzyka (np. samotni seniorzy bez dzieci odchodzą w 49,2% przypadków, n=561), ale nie należy ich traktować jako głównych przyczyn odejść.
+
+Uwagi: (1) współczynniki skorelowanych cech (np. `MonthlyCharges`, Fiber, usługi streamingowe, `TotalCharges`) nie powinny być czytane pojedynczo; ujemny współczynnik `MonthlyCharges` nie oznacza, że wyższa opłata zmniejsza ryzyko; (2) wyniki opisują związki, a nie przyczyny, więc działania biznesowe należy sprawdzić testem A/B.
+
 ## Jak uruchomić
 
 *Do uzupełnienia po zbudowaniu API (instalacja z `requirements.txt`, start serwera, przykładowe zapytanie).*

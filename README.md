@@ -111,7 +111,19 @@ Próg zależy od kosztów biznesowych, a nie tylko od modelu. Przy bardzo taniej
 
 ## Wynik na zbiorze testowym
 
-*Do uzupełnienia po Etapie 13 (jednorazowa ocena na zbiorze testowym).*
+Finalny model (regresja logistyczna, `C=1`) nauczono na zbiorze treningowym i walidacyjnym łącznie (80% danych) i oceniono jednokrotnie na zbiorze testowym (1409 klientów) przy progu 0,38 wybranym na walidacji.
+
+| Metryka | Wynik | 95% przedział (bootstrap) |
+|---|---|---|
+| Recall | 0,687 | 0,638–0,732 |
+| Precision | 0,560 | 0,513–0,604 |
+| F1 | 0,617 | – |
+| PR-AUC | 0,633 | – |
+| ROC-AUC | 0,842 | – |
+
+Macierz pomyłek (wiersze: stan faktyczny, kolumny: predykcja): 833 trafnie „zostanie”, 202 fałszywe alarmy, 117 przeoczonych klientów, 257 trafnie wyłapanych odejść. Oczekiwany zysk netto przy założeniach kosztowych wynosi ok. 24,3 tys. $ na 1409 klientów (na walidacji: 26,2 tys. $).
+
+Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,642), co wskazuje, że model i wybór progu nie przeuczyły się na zbiorze walidacyjnym. Różnice mieszczą się w przedziałach niepewności. Wyniki wynikają z założeń kosztowych opisanych wyżej i nie zostały zweryfikowane w praktyce.
 
 ## Jak uruchomić
 

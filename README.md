@@ -1,66 +1,68 @@
-# project-telco-churn
-
 # Predykcja churnu klientów telekomunikacyjnych
 
-Model, który wskazuje klientów firmy telekomunikacyjnej mogących odejść do konkurencji, żeby firma zdążyła zaproponować im ofertę.
+Projekt przewiduje, którzy klienci firmy telekomunikacyjnej mogą odejść do konkurencji (churn), aby firma mogła zareagować ofertą retencyjną, zanim klient zrezygnuje.
 
 ## Dane
 
-Zbiór Telco Customer Churn (Kaggle): 7043 klientów, 21 kolumn. Jeden wiersz to jeden klient, target to kolumna `Churn` (1 = odszedł). Odeszło 26,5% klientów, więc klasy są niezbalansowane.
+Zbiór Telco Customer Churn (Kaggle): 7043 klientów, 21 kolumn. Jeden wiersz to jeden klient, target to kolumna `Churn` (1 = odszedł). Odeszło 26,5% klientów, więc klasy są niezbalansowane i sama accuracy nie jest dobrą metryką.
+
+Czyszczenie: kolumna `TotalCharges` była tekstem, a 11 pustych wartości dotyczyło klientów z `tenure = 0` (nowi klienci, którzy jeszcze nic nie zapłacili), więc wypełniono je zerami. Usunięto `customerID` (identyfikator bez wartości predykcyjnej), a `Churn` zamieniono z Yes/No na 1/0.
 
 ## Struktura projektu
 
 - `data/raw/` – surowe dane
 - `data/processed/` – dane po czyszczeniu (`telco_clean.csv`)
 - `notebooks/01_eda.ipynb` – analiza danych
-- `notebooks/02_modeling.ipynb` – podział danych, preprocessing, modele
-- `models/` – zapisany model
-- `app/` – API (FastAPI)
+- `notebooks/02_modeling.ipynb` – podział danych, preprocessing, modele, wybór progu
+- `models/` – zapisany model (w przygotowaniu)
+- `app/` – API (w przygotowaniu)
 
 ## Najważniejsze wnioski z EDA
 
-- Klienci na umowie miesięcznej odchodzą w 42,7% przypadków (umowa dwuletnia: 2,8%).
-- Ponad połowa nowych klientów (staż do 6 miesięcy) odchodzi (52,9%).
-- Fiber optic: 41,9% odejść wobec 19,0% przy DSL.
-- Płatność elektronicznym czekiem: 45,3% odejść.
-- TechSupport i OnlineSecurity wiążą się z wyraźnie niższym churnem (ok. 15% wobec ok. 42%).
+EDA pokazuje związki (korelacje), a nie przyczyny.
+
+- **Umowa miesięczna:** odchodzi 42,7% klientów (umowa roczna: 11,3%, dwuletnia: 2,8%). Umowa miesięczna odpowiada za 88,6% wszystkich odejść.
+- **Nowi klienci:** w grupie ze stażem do 6 miesięcy odchodzi 52,9% klientów, a klienci ci stanowią 42% wszystkich odejść.
+- **Internet światłowodowy (Fiber optic):** 41,9% odejść wobec 19,0% przy DSL i 7,4% bez internetu. Fiber jest też najdroższy (średnio 91,5 $ miesięcznie wobec 58,1 $ przy DSL).
+- **Płatność elektronicznym czekiem:** 45,3% odejść wobec 15–19% przy pozostałych metodach.
+- **TechSupport i OnlineSecurity:** wśród klientów z internetem ci, którzy je mają, odchodzą ok. 15%, a ci bez nich ok. 42%.
+- **Liczba usług:** klienci z 7–9 usługami odchodzą rzadziej (22,5%, 12,4%, 5,3%) niż klienci z 2–3 usługami (31% i 44,9%). Klienci z dużą liczbą usług mają jednak zwykle długi staż i umowę dwuletnią, więc liczba usług może być markerem lojalności, a nie jej przyczyną.
+- **Profil gospodarstwa:** najwyższy odsetek odejść mają samotni seniorzy bez dzieci (49,2%, n=561). W danych nie ma informacji, ile z tych odejść wynika ze zgonów. Osoby niebędące seniorami, samotne i bez dzieci odchodzą w 31,2% przypadków.
+- **Umowa miesięczna przy dużej liczbie usług:** w grupie 7–9 usług klienci na umowie miesięcznej odchodzą w 40,4% przypadków (n=270, średnia opłata ok. 102 $), a z umową dwuletnią w 4,3%. Największy łączny utracony przychód pochodzi jednak z klientów Fiber na umowie miesięcznej (ok. 100 tys. $ miesięcznie) i z grupy 2–4 usług na umowie miesięcznej (ok. 65 tys. $).
+
+Utracony przychód to suma opłat miesięcznych klientów, którzy odeszli. To uproszczenie: nie uwzględnia marży ani czasu, przez jaki klient by został.
+
+Rekomendacje biznesowe wynikające z EDA (program dla nowych klientów, zachęty do umów rocznych i płatności automatycznych, audyt oferty Fiber) są hipotezami do zweryfikowania, np. testem A/B.
 
 ## Metodologia
 
-Podział train/validation/test 60/20/20 ze stratyfikacją po `Churn`, test odłożony do końcowej oceny. Preprocessing w `Pipeline` (OneHotEncoder dla kategorii, StandardScaler dla liczb).
+- Podział train/validation/test w proporcji 60/20/20 (4225 / 1409 / 1409 klientów), stratyfikowany po `Churn` (`random_state=42`). Zbiór testowy jest odłożony i zostanie użyty jeden raz, na końcu.
+- Preprocessing w `Pipeline` i `ColumnTransformer`: `OneHotEncoder` dla 15 kolumn tekstowych, `StandardScaler` dla `tenure`, `MonthlyCharges` i `TotalCharges`, `SeniorCitizen` bez zmian. Dopasowanie (fit) wyłącznie na zbiorze treningowym, co zapobiega wyciekowi danych.
 
 ## Metryki
-Główna metryka: **recall** dla klasy churn, bo przeoczony odchodzący klient jest dla firmy kosztowniejszy niż niepotrzebny telefon do klienta, który zostanie.
 
-Ograniczenie: **precision**, żeby model nie oznaczał wszystkich klientów. Sam recall można podbić do 100% oznaczeniem całej bazy, przy precision równej odsetkowi churnu, czyli ok. 26,5%.
+Główna metryka: **recall** dla klasy churn, bo przeoczony odchodzący klient jest dla firmy kosztowniejszy niż niepotrzebny kontakt z klientem, który zostanie. Ograniczenie: **precision**, ponieważ sam recall można podbić do 100% oznaczeniem całej bazy (przy precision równej odsetkowi churnu, ok. 26,5%). Pomocniczo: **PR-AUC** (jakość rankingu niezależnie od progu) i F1. Ostatecznie próg decyzyjny wybrano jednak na podstawie oczekiwanego zysku (patrz niżej).
 
-Pomocniczo: **PR-AUC** i **F1** do oceny jakości rankingu i kompromisu.
-
-## Wyniki
-
-### Wyniki na zbiorze walidacyjnym
+## Wyniki na zbiorze walidacyjnym
 
 | Model | Próg | Recall | Precision | F1 | PR-AUC |
 |---|---|---|---|---|---|
 | DummyClassifier (zawsze „zostanie”) | 0,50 | 0,000 | 0,000 | 0,000 | – |
 | Regresja logistyczna (baseline) | 0,50 | 0,535 | 0,658 | 0,590 | 0,642 |
 | Regresja logistyczna + `class_weight="balanced"` | 0,50 | 0,789 | 0,515 | 0,623 | 0,642 |
-| Regresja logistyczna, obniżony próg (wstępnie) | 0,30 | 0,751 | 0,537 | 0,627 | 0,642 |
+| Regresja logistyczna, próg wybrany wg zysku | 0,38 | 0,674 | 0,592 | 0,630 | 0,642 |
 
-- Roboczy próg decyzyjny: 0,35, wybrany jako maksimum F1 na zbiorze walidacyjnym (F1 = 0,629, recall = 0,706, precision = 0,567; 110 przeoczonych klientów, 202 fałszywe alarmy). F1 jest jednak niemal płaskie w zakresie 0,20–0,45, więc wybór jest nieznacznie lepszy od sąsiednich progów. Próg zostanie ponownie wyznaczony po strojeniu modelu.
-
-### Wnioski z etapu niezbalansowania klas
+Wnioski:
 
 - Accuracy wprowadza w błąd: model, który zawsze mówi „klient zostanie”, ma accuracy 73,5%, a recall 0%.
 - `class_weight="balanced"` i obniżenie progu dają ten sam efekt: zwiększają recall kosztem precision. Nie zmieniają jakości rankingu klientów (PR-AUC i ROC-AUC bez zmian).
-- Próg 0,35: recall 0,706, precision 0,567, F1 0,629, PR-AUC 0,642. Wybór progu ma charakter wstępny: ostateczną decyzję podejmiemy w oparciu o koszty biznesowe po dostrojeniu modelu.
 - SMOTE pominięto, bo `class_weight` i zmiana progu dały ten sam efekt bez dodatkowej biblioteki.
 
-### Nowe cechy (feature engineering)
+## Nowe cechy (feature engineering)
 
-Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_no_support` (światłowód bez OnlineSecurity i TechSupport), `ServiceCount` (liczba usług) i `ChargePerService` (opłata przypadająca na usługę). Żadna z nich nie poprawiła wyniku regresji logistycznej na zbiorze walidacyjnym (PR-AUC 0,642 bez zmian), a po dodaniu do modeli drzewiastych także nie dały zysku, więc nie wchodzą do modelu.
+Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_no_support` (światłowód bez OnlineSecurity i TechSupport), `ServiceCount` (liczba usług) i `ChargePerService` (opłata przypadająca na usługę). Żadna nie poprawiła regresji logistycznej na zbiorze walidacyjnym (PR-AUC 0,642 bez zmian), a po dodaniu do modeli drzewiastych też nie dały zysku, więc nie wchodzą do modelu. Cecha „umowa miesięczna” (`IsMonthToMonth`) została odrzucona, bo dubluje kolumnę z `OneHotEncoder`.
 
-### Porównanie modeli
+## Porównanie modeli
 
 5-krotna walidacja krzyżowa na zbiorze treningowym (te same foldy, metryka: PR-AUC):
 
@@ -73,9 +75,44 @@ Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_n
 | HistGradientBoosting | nie | 0,641 | 0,012 | 0,832 |
 | HistGradientBoosting | tak | 0,639 | 0,010 | 0,828 |
 
-Regresja logistyczna i Random Forest dają praktycznie ten sam wynik (różnica 0,001 jest dużo mniejsza niż odchylenie standardowe), a HistGradientBoosting wypada nieco gorzej. Wyboru modelu do dalszego strojenia dokonano w kolejnym etapie.
+Regresja logistyczna i Random Forest dają praktycznie ten sam wynik (różnica 0,001 jest dużo mniejsza niż odchylenie standardowe), a HistGradientBoosting wypada nieco gorzej. Wybrano **regresję logistyczną** jako model prostszy i łatwiejszy do wyjaśnienia, bez utraty jakości.
+
+## Strojenie
+
+Strojenie parametru regularyzacji `C` (od 0,003 do 30, GridSearchCV, PR-AUC) zmieniło wynik tylko o 0,006 (0,662–0,668 przy odchyleniu standardowym ok. 0,02), więc pozostawiono wartość domyślną `C=1`. Na zbiorze walidacyjnym PR-AUC wynosi 0,64. Ograniczeniem jest zawartość danych, a nie ustawienia modelu.
+
+## Wybór progu decyzyjnego
+
+Próg wybrano na zbiorze walidacyjnym na podstawie oczekiwanego zysku, przy jawnie przyjętych **założeniach** (nie pochodzą z danych):
+
+- koszt akcji retencyjnej na jednego klienta: **100 $** (kontakt i oferta, np. rabat rozłożony na 12 miesięcy),
+- wartość uratowanego klienta: **780 $** (12 miesięcy × ok. 65 $ przychodu, bez uwzględnienia marży),
+- skuteczność oferty: **35%** zagrożonych klientów po kontakcie zostaje.
+
+Oczekiwany zysk z trafionego alarmu wynosi więc 0,35 × 780 − 100 = 173 $, a fałszywy alarm kosztuje 100 $. Maksymalny zysk daje **próg 0,38**: recall 0,674, precision 0,592, 426 alarmów (252 trafne, 174 fałszywe), 122 przeoczonych klientów, oczekiwany zysk ok. 26,2 tys. $ na zbiorze walidacyjnym (1409 klientów). Krzywa zysku jest płaska w zakresie progów 0,30–0,50 (zysk 24–26 tys. $), więc dokładna wartość progu nie jest krytyczna.
+
+### Analiza wrażliwości na koszt kontaktu
+
+| Koszt kontaktu [$] | Najlepszy próg | Zysk przy najlepszym progu [$] | Zysk: kontakt ze wszystkimi [$] |
+|---|---|---|---|
+| 10 | 0,04 | 89 035 | 88 012 |
+| 50 | 0,24 | 52 592 | 31 652 |
+| 100 | 0,38 | 26 196 | −38 798 |
+| 150 | 0,56 | 10 548 | −109 248 |
+| 200 | 0,75 | 1 063 | −179 698 |
+
+Próg zależy od kosztów biznesowych, a nie tylko od modelu. Przy bardzo taniej akcji (ok. 10 $) opłaca się kontaktować prawie ze wszystkimi i model niewiele wnosi, natomiast im droższa akcja retencyjna, tym większa wartość modelu, który wskazuje, do kogo warto się zwrócić. Im droższa akcja, tym jednak mniejszy zysk netto.
+
+## Ograniczenia
+
+- Założenia kosztowe (koszt kontaktu, wartość klienta, skuteczność oferty) są przyjęte, a nie zmierzone. Wartość klienta jest liczona z przychodu, a nie z marży.
+- Zysk jest liczony na zbiorze walidacyjnym i jest przybliżeniem; ostateczną ocenę modelu da zbiór testowy.
+- Dane nie zawierają informacji o przyczynach odejść (np. zgony wśród seniorów, oferty konkurencji), a EDA pokazuje korelacje, nie związki przyczynowe.
+
+## Wynik na zbiorze testowym
+
+*Do uzupełnienia po Etapie 13 (jednorazowa ocena na zbiorze testowym).*
 
 ## Jak uruchomić
-(uzupełnimy po zbudowaniu API: instalacja z `requirements.txt`, start serwera, przykładowe zapytanie)
 
-
+*Do uzupełnienia po zbudowaniu API (instalacja z `requirements.txt`, start serwera, przykładowe zapytanie).*

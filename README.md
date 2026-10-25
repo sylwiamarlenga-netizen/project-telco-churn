@@ -1,6 +1,6 @@
 # Predykcja churnu klientów telekomunikacyjnych
 
-Projekt przewiduje, którzy klienci firmy telekomunikacyjnej mogą odejść do konkurencji (churn), aby firma mogła zareagować ofertą retencyjną, zanim klient zrezygnuje.
+Projekt przewiduje, którzy klienci firmy telekomunikacyjnej mogą odejść do konkurencji (churn), aby firma mogła zareagować, zanim klient zrezygnuje.
 
 ## Dane
 
@@ -23,12 +23,12 @@ EDA pokazuje związki (korelacje), a nie przyczyny.
 
 - **Umowa miesięczna:** odchodzi 42,7% klientów (umowa roczna: 11,3%, dwuletnia: 2,8%). Umowa miesięczna odpowiada za 88,6% wszystkich odejść.
 - **Nowi klienci:** w grupie ze stażem do 6 miesięcy odchodzi 52,9% klientów, a klienci ci stanowią 42% wszystkich odejść.
-- **Internet światłowodowy (Fiber optic):** 41,9% odejść wobec 19,0% przy DSL i 7,4% bez internetu. Fiber jest też najdroższy (średnio 91,5 $ miesięcznie wobec 58,1 $ przy DSL).
+- **Fiber optic:** 41,9% odejść wobec 19,0% przy DSL i 7,4% bez internetu. Fiber jest też najdroższy (średnio 91,5 $ miesięcznie wobec 58,1 $ przy DSL).
 - **Płatność elektronicznym czekiem:** 45,3% odejść wobec 15–19% przy pozostałych metodach.
 - **TechSupport i OnlineSecurity:** wśród klientów z internetem ci, którzy je mają, odchodzą ok. 15%, a ci bez nich ok. 42%.
-- **Liczba usług:** klienci z 7–9 usługami odchodzą rzadziej (22,5%, 12,4%, 5,3%) niż klienci z 2–3 usługami (31% i 44,9%). Klienci z dużą liczbą usług mają jednak zwykle długi staż i umowę dwuletnią, więc liczba usług może być markerem lojalności, a nie jej przyczyną.
+- **Liczba usług:** klienci z 7-9 usługami odchodzą rzadziej (odpowiednio 22,5%, 12,4%, 5,3%) niż klienci z 2 lub 3 usługami (31% i 44,9%). Klienci z dużą liczbą usług mają jednak zwykle długi staż i umowę dwuletnią, więc liczba usług może być markerem lojalności, a nie jej przyczyną.
 - **Profil gospodarstwa:** najwyższy odsetek odejść mają samotni seniorzy bez dzieci (49,2%, n=561). W danych nie ma informacji, ile z tych odejść wynika ze zgonów. Osoby niebędące seniorami, samotne i bez dzieci odchodzą w 31,2% przypadków.
-- **Umowa miesięczna przy dużej liczbie usług:** w grupie 7–9 usług klienci na umowie miesięcznej odchodzą w 40,4% przypadków (n=270, średnia opłata ok. 102 $), a z umową dwuletnią w 4,3%. Największy łączny utracony przychód pochodzi jednak z klientów Fiber na umowie miesięcznej (ok. 100 tys. $ miesięcznie) i z grupy 2–4 usług na umowie miesięcznej (ok. 65 tys. $).
+- **Umowa miesięczna przy dużej liczbie usług:** w grupie 7-9 usług klienci na umowie miesięcznej odchodzą w 40,4% przypadków (n=270, średnia opłata ok. 102 $). Największy łączny utracony przychód pochodzi jednak z klientów Fiber na umowie misięcznej (ok. 100 tys. $ miesięcznie) i z grupy 2-4 usług na umowie miesięcznej (ok. 65 tys.$).
 
 Utracony przychód to suma opłat miesięcznych klientów, którzy odeszli. To uproszczenie: nie uwzględnia marży ani czasu, przez jaki klient by został.
 
@@ -135,4 +135,62 @@ Uwagi: (1) współczynniki skorelowanych cech (np. `MonthlyCharges`, Fiber, usł
 
 ## Jak uruchomić
 
-*Do uzupełnienia po zbudowaniu API (instalacja z `requirements.txt`, start serwera, przykładowe zapytanie).*
+Projekt testowano na Pythonie 3.14.
+
+1. Sklonuj repozytorium i wejdź do jego folderu.
+2. Zainstaluj biblioteki:
+
+```
+   py -m pip install -r requirements.txt
+```
+
+3. Uruchom API (w głównym folderze projektu):
+
+```
+   py -m uvicorn app.main:app --reload
+```
+
+4. Otwórz w przeglądarce `http://127.0.0.1:8000/docs`. Znajdziesz tam interaktywną dokumentację, w której można wysłać zapytanie bez dodatkowych narzędzi (**Try it out**, potem **Execute**).
+
+Zapisany model (`models/churn_model.joblib`) jest w repozytorium, więc do uruchomienia API nie trzeba go uczyć. Aby odtworzyć analizę i model, uruchom po kolei notebooki `notebooks/01_eda.ipynb` i `notebooks/02_modeling.ipynb` (`py -m jupyter notebook`). Zapisany model wymaga tej samej wersji `scikit-learn` co w `requirements.txt`.
+
+### API
+
+- `GET /health` sprawdzenie, czy aplikacja działa. Odpowiedź: `{"status": "ok"}`.
+- `POST /predict` dane klienta (19 pól jak w zbiorze, bez `customerID` i `Churn`). Zwraca prawdopodobieństwo odejścia, decyzję według progu 0,38 i użyty próg. Błędne dane (nieznana wartość, brakujące pole, ujemny staż) kończą się odpowiedzią 422 z opisem błędu.
+
+Przykładowe zapytanie:
+
+```json
+{
+  "gender": "Female",
+  "SeniorCitizen": 0,
+  "Partner": "No",
+  "Dependents": "No",
+  "tenure": 14,
+  "PhoneService": "Yes",
+  "MultipleLines": "Yes",
+  "InternetService": "Fiber optic",
+  "OnlineSecurity": "No",
+  "OnlineBackup": "No",
+  "DeviceProtection": "Yes",
+  "TechSupport": "No",
+  "StreamingTV": "Yes",
+  "StreamingMovies": "Yes",
+  "Contract": "Month-to-month",
+  "PaperlessBilling": "Yes",
+  "PaymentMethod": "Electronic check",
+  "MonthlyCharges": 104.85,
+  "TotalCharges": 1468.9
+}
+```
+
+Odpowiedź:
+
+```json
+{
+  "churn_probability": 0.7505,
+  "churn_prediction": true,
+  "threshold": 0.38
+}
+```

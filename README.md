@@ -7,7 +7,7 @@ Projekt przewiduje, którzy klienci firmy telekomunikacyjnej mogą odejść do k
 
 ## Dane
 
-https://www.kaggle.com/code/emineyetm/telco-customer-churn
+https://www.kaggle.com/datasets/blastchar/telco-customer-churn
 
 Zbiór Telco Customer Churn (Kaggle): 7043 klientów, 21 kolumn. Jeden wiersz to jeden klient, target to kolumna `Churn` (1 = odszedł). Odeszło 26,5% klientów, więc klasy są niezbalansowane i sama accuracy nie jest dobrą metryką.
 
@@ -18,9 +18,11 @@ Czyszczenie: kolumna `TotalCharges` była tekstem, a 11 pustych wartości dotycz
 - `data/raw/` – surowe dane
 - `data/processed/` – dane po czyszczeniu (`telco_clean.csv`)
 - `notebooks/01_eda.ipynb` – analiza danych
-- `notebooks/02_modeling.ipynb` – podział danych, preprocessing, modele, wybór progu
-- `models/` – zapisany model (w przygotowaniu)
-- `app/` – API (w przygotowaniu)
+- `notebooks/02_modeling.ipynb` – podział danych, modele, próg, interpretacja, zapis modelu
+- `models/churn_model.joblib` – zapisany model (Pipeline i próg 0,38)
+- `app/main.py` – API (FastAPI)
+- `reports/figures/` – wykresy (EDA, macierz pomyłek, krzywa precision-recall)
+- `requirements.txt` – wersje bibliotek
 
 ## Najważniejsze wnioski z EDA
 
@@ -41,7 +43,7 @@ Rekomendacje biznesowe wynikające z EDA (program dla nowych klientów, zachęty
 
 ## Metodologia
 
-- Podział train/validation/test w proporcji 60/20/20 (4225/1409/1409 klientów), stratyfikowany po `Churn` (`random_state=42`). Zbiór testowy jest odłożony i zostanie użyty jeden raz, na końcu.
+- Podział train/validation/test w proporcji 60/20/20 (4225/1409/1409 klientów), stratyfikowany po `Churn` (`random_state=42`). Zbiór testowy jest odłożony i został użyty jeden raz, na końcu.
 - Preprocessing w `Pipeline` i `ColumnTransformer`: `OneHotEncoder` dla 15 kolumn tekstowych, `StandardScaler` dla `tenure`, `MonthlyCharges` i `TotalCharges`, `SeniorCitizen` bez zmian. Dopasowanie (fit) wyłącznie na zbiorze treningowym, co zapobiega wyciekowi danych.
 
 ## Metryki
@@ -110,7 +112,7 @@ Próg zależy od kosztów biznesowych, a nie tylko od modelu. Przy bardzo taniej
 ## Ograniczenia
 
 - Założenia kosztowe (koszt kontaktu, wartość klienta, skuteczność oferty) są przyjęte, a nie zmierzone. Wartość klienta jest liczona z przychodu, a nie z marży.
-- Zysk jest liczony na zbiorze walidacyjnym i jest przybliżeniem; ostateczną ocenę modelu da zbiór testowy.
+- Zysk jest liczony na zbiorze walidacyjnym i jest przybliżeniem; ostateczna ocena jest na zbiorze testowym (sekcja niżej).
 - Dane nie zawierają informacji o przyczynach odejść (np. zgony wśród seniorów, oferty konkurencji), a EDA pokazuje korelacje, nie związki przyczynowe.
 
 ## Wynik na zbiorze testowym
@@ -131,20 +133,20 @@ Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,6
 
 ## Green IT: efektywność modeli
 
-Porównanie trzech modeli na tym samym zbiorze (czas treningu to mediana z 3 pomiarów na moim komputerze, PR-AUC na zbiorze walidacyjnym):
+Porównanie trzech modeli w tych samych ustawieniach co w walidacji krzyżowej (Random Forest: `n_estimators=300`, `min_samples_leaf=5`). Czas treningu to mediana z 3 pomiarów na moim komputerze, PR-AUC liczono na zbiorze walidacyjnym:
 
 | Model | PR-AUC | Czas treningu [s] | Predykcja / 1000 klientów [s] | Rozmiar [KB] | PR-AUC na sekundę treningu |
 |---|---|---|---|---|---|
-| Regresja logistyczna | 0,642 | 0,035 | 0,0052 | 7,8 | 18,41 |
-| Random Forest | 0,592 | 0,386 | 0,0184 | 14 136,8 | 1,54 |
-| HistGradientBoosting | 0,632 | 0,250 | 0,0117 | 370,3 | 2,53 |
+| Regresja logistyczna | 0,642 | 0,052 | 0,0082 | 7,8 | 12,31 |
+| Random Forest | 0,631 | 0,945 | 0,0441 | 12 154,3 | 0,67 |
+| HistGradientBoosting | 0,632 | 0,304 | 0,0125 | 370,3 | 2,08 |
 
-Wybrana regresja logistyczna jest jednocześnie najlepsza jakościowo, najszybsza (ok. 11 razy szybszy trening niż Random Forest) i najmniejsza (ok. 1800 razy mniejszy plik niż Random Forest). Droższe modele nie dały w zamian lepszej jakości, więc nie ma powodu, żeby zużywać więcej zasobów.
+Jakość jest praktycznie taka sama (PR-AUC 0,631–0,642, różnice mniejsze niż odchylenie standardowe z walidacji krzyżowej), a koszt bardzo różny. Wybrana regresja logistyczna trenuje się ok. 18 razy szybciej niż Random Forest i ok. 6 razy szybciej niż HistGradientBoosting, a jej plik jest ok. 1500 razy mniejszy niż plik Random Forest (8 KB wobec 12 MB). Droższe modele nie dają w zamian lepszej jakości, więc nie ma powodu zużywać więcej zasobów.
 
 Dodatkowe świadome wybory:
 - pominięcie SMOTE (zmiana progu i `class_weight` dają ten sam efekt bez dodatkowych obliczeń),
 - zawężone strojenie do jednego parametru (`C`), bo szerszy przegląd nie poprawiał wyniku,
-- mały plik modelu (8 KB), dzięki czemu API startuje od razu i obraz Dockera może być lekki.
+- mały plik modelu (8 KB), dzięki czemu API startuje od razu.
 
 Uwaga: czasy zależą od sprzętu i są podane orientacyjnie do porównania modeli, a nie jako bezwzględne wartości.
 

@@ -1,8 +1,13 @@
+# Autor
+Sylwia Marlenga-Wasik
+
 # Predykcja churnu klientów telekomunikacyjnych
 
 Projekt przewiduje, którzy klienci firmy telekomunikacyjnej mogą odejść do konkurencji (churn), aby firma mogła zareagować, zanim klient zrezygnuje.
 
 ## Dane
+
+https://www.kaggle.com/code/emineyetm/telco-customer-churn
 
 Zbiór Telco Customer Churn (Kaggle): 7043 klientów, 21 kolumn. Jeden wiersz to jeden klient, target to kolumna `Churn` (1 = odszedł). Odeszło 26,5% klientów, więc klasy są niezbalansowane i sama accuracy nie jest dobrą metryką.
 
@@ -124,6 +129,25 @@ Macierz pomyłek (wiersze: stan faktyczny, kolumny: predykcja): 833 trafnie „z
 
 Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,642), co wskazuje, że model i wybór progu nie przeuczyły się na zbiorze walidacyjnym. Wyniki wynikają z założeń kosztowych opisanych wyżej i nie zostały zweryfikowane w praktyce.
 
+## Green IT: efektywność modeli
+
+Porównanie trzech modeli na tym samym zbiorze (czas treningu to mediana z 3 pomiarów na moim komputerze, PR-AUC na zbiorze walidacyjnym):
+
+| Model | PR-AUC | Czas treningu [s] | Predykcja / 1000 klientów [s] | Rozmiar [KB] | PR-AUC na sekundę treningu |
+|---|---|---|---|---|---|
+| Regresja logistyczna | 0,642 | 0,035 | 0,0052 | 7,8 | 18,41 |
+| Random Forest | 0,592 | 0,386 | 0,0184 | 14 136,8 | 1,54 |
+| HistGradientBoosting | 0,632 | 0,250 | 0,0117 | 370,3 | 2,53 |
+
+Wybrana regresja logistyczna jest jednocześnie najlepsza jakościowo, najszybsza (ok. 11 razy szybszy trening niż Random Forest) i najmniejsza (ok. 1800 razy mniejszy plik niż Random Forest). Droższe modele nie dały w zamian lepszej jakości, więc nie ma powodu, żeby zużywać więcej zasobów.
+
+Dodatkowe świadome wybory:
+- pominięcie SMOTE (zmiana progu i `class_weight` dają ten sam efekt bez dodatkowych obliczeń),
+- zawężone strojenie do jednego parametru (`C`), bo szerszy przegląd nie poprawiał wyniku,
+- mały plik modelu (8 KB), dzięki czemu API startuje od razu i obraz Dockera może być lekki.
+
+Uwaga: czasy zależą od sprzętu i są podane orientacyjnie do porównania modeli, a nie jako bezwzględne wartości.
+
 ## Interpretacja modelu
 
 Największy wpływ zmniejszający ryzyko odejścia mają: długi staż (`tenure`), umowa dwuletnia, internet DSL oraz brak internetu. Największy wpływ zwiększający ryzyko mają: internet Fiber optic, umowa miesięczna oraz wyższy `TotalCharges`. Przy równych pozostałych cechach umowa miesięczna zwiększa szanse odejścia ok. 3,9 raza wobec dwuletniej, a Fiber ok. 3,7 raza wobec DSL.
@@ -134,7 +158,7 @@ Uwagi:
 - współczynniki skorelowanych cech (np. `MonthlyCharges`, Fiber, usługi streamingowe, `TotalCharges`) nie powinny być czytane pojedynczo; ujemny współczynnik `MonthlyCharges` nie oznacza, że wyższa opłata zmniejsza ryzyko; 
 - wyniki opisują związki, a nie przyczyny, więc działania biznesowe należy sprawdzić testem A/B.
 
-## Jak uruchomić
+## Uruchomienie
 
 Projekt testowano na Pythonie 3.14.
 

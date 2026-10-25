@@ -6,11 +6,10 @@ import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-# --- wczytanie modelu raz, przy starcie aplikacji ---
 MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "churn_model.joblib"
 artifact = joblib.load(MODEL_PATH)
-model = artifact["model"]                      # cały Pipeline (preprocessing + regresja logistyczna)
-THRESHOLD = artifact["threshold"]              # próg decyzyjny wybrany w Etapie 12
+model = artifact["model"]                      # cały Pipeline 
+THRESHOLD = artifact["threshold"]              # próg decyzyjny
 FEATURE_COLUMNS = artifact["feature_columns"]  # kolumny w takiej kolejności, jakiej oczekuje model
 
 app = FastAPI(
@@ -19,7 +18,6 @@ app = FastAPI(
 )
 
 
-# --- opis i walidacja danych wejściowych (Pydantic) ---
 class Customer(BaseModel):
     gender: Literal["Female", "Male"]
     SeniorCitizen: Literal[0, 1]

@@ -28,15 +28,15 @@ EDA pokazuje związki (korelacje), a nie przyczyny.
 - **TechSupport i OnlineSecurity:** wśród klientów z internetem ci, którzy je mają, odchodzą ok. 15%, a ci bez nich ok. 42%.
 - **Liczba usług:** klienci z 7-9 usługami odchodzą rzadziej (odpowiednio 22,5%, 12,4%, 5,3%) niż klienci z 2 lub 3 usługami (31% i 44,9%). Klienci z dużą liczbą usług mają jednak zwykle długi staż i umowę dwuletnią, więc liczba usług może być markerem lojalności, a nie jej przyczyną.
 - **Profil gospodarstwa:** najwyższy odsetek odejść mają samotni seniorzy bez dzieci (49,2%, n=561). W danych nie ma informacji, ile z tych odejść wynika ze zgonów. Osoby niebędące seniorami, samotne i bez dzieci odchodzą w 31,2% przypadków.
-- **Umowa miesięczna przy dużej liczbie usług:** w grupie 7-9 usług klienci na umowie miesięcznej odchodzą w 40,4% przypadków (n=270, średnia opłata ok. 102 $). Największy łączny utracony przychód pochodzi jednak z klientów Fiber na umowie misięcznej (ok. 100 tys. $ miesięcznie) i z grupy 2-4 usług na umowie miesięcznej (ok. 65 tys.$).
+- **Umowa miesięczna przy dużej liczbie usług:** w grupie 7-9 usług klienci na umowie miesięcznej odchodzą w 40,4% przypadków (n=270, średnia opłata ok. 102 $). Największy łączny utracony przychód pochodzi jednak z klientów Fiber na umowie misięcznej (ok. 100 tys. $ miesięcznie) i z grupy 2-4 usług na umowie miesięcznej (ok. 65 tys. $).
 
 Utracony przychód to suma opłat miesięcznych klientów, którzy odeszli. To uproszczenie: nie uwzględnia marży ani czasu, przez jaki klient by został.
 
-Rekomendacje biznesowe wynikające z EDA (program dla nowych klientów, zachęty do umów rocznych i płatności automatycznych, audyt oferty Fiber) są hipotezami do zweryfikowania, np. testem A/B.
+Rekomendacje biznesowe wynikające z EDA (program dla nowych klientów, zachęty do umów rocznych i płatności automatycznych, audyt oferty Fiber) są hipotezami do zweryfikowania.
 
 ## Metodologia
 
-- Podział train/validation/test w proporcji 60/20/20 (4225 / 1409 / 1409 klientów), stratyfikowany po `Churn` (`random_state=42`). Zbiór testowy jest odłożony i zostanie użyty jeden raz, na końcu.
+- Podział train/validation/test w proporcji 60/20/20 (4225/1409/1409 klientów), stratyfikowany po `Churn` (`random_state=42`). Zbiór testowy jest odłożony i zostanie użyty jeden raz, na końcu.
 - Preprocessing w `Pipeline` i `ColumnTransformer`: `OneHotEncoder` dla 15 kolumn tekstowych, `StandardScaler` dla `tenure`, `MonthlyCharges` i `TotalCharges`, `SeniorCitizen` bez zmian. Dopasowanie (fit) wyłącznie na zbiorze treningowym, co zapobiega wyciekowi danych.
 
 ## Metryki
@@ -56,11 +56,10 @@ Wnioski:
 
 - Accuracy wprowadza w błąd: model, który zawsze mówi „klient zostanie”, ma accuracy 73,5%, a recall 0%.
 - `class_weight="balanced"` i obniżenie progu dają ten sam efekt: zwiększają recall kosztem precision. Nie zmieniają jakości rankingu klientów (PR-AUC i ROC-AUC bez zmian).
-- SMOTE pominięto, bo `class_weight` i zmiana progu dały ten sam efekt bez dodatkowej biblioteki.
 
 ## Nowe cechy (feature engineering)
 
-Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_no_support` (światłowód bez OnlineSecurity i TechSupport), `ServiceCount` (liczba usług) i `ChargePerService` (opłata przypadająca na usługę). Żadna nie poprawiła regresji logistycznej na zbiorze walidacyjnym (PR-AUC 0,642 bez zmian), a po dodaniu do modeli drzewiastych też nie dały zysku, więc nie wchodzą do modelu. Cecha „umowa miesięczna” (`IsMonthToMonth`) została odrzucona, bo dubluje kolumnę z `OneHotEncoder`.
+Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_no_support` (Fiber bez OnlineSecurity i TechSupport), `ServiceCount` (liczba usług) i `ChargePerService` (opłata przypadająca na usługę). Żadna nie poprawiła regresji logistycznej na zbiorze walidacyjnym (PR-AUC 0,642 bez zmian), a po dodaniu do modeli drzewiastych też nie dały zysku, więc nie wchodzą do modelu. Cecha „umowa miesięczna” (`IsMonthToMonth`) została odrzucona, bo dubluje kolumnę z `OneHotEncoder`.
 
 ## Porównanie modeli
 
@@ -75,7 +74,7 @@ Sprawdzono cechy: `n_protect` (liczba z czterech dodatków ochronnych), `fiber_n
 | HistGradientBoosting | nie | 0,641 | 0,012 | 0,832 |
 | HistGradientBoosting | tak | 0,639 | 0,010 | 0,828 |
 
-Regresja logistyczna i Random Forest dają praktycznie ten sam wynik (różnica 0,001 jest dużo mniejsza niż odchylenie standardowe), a HistGradientBoosting wypada nieco gorzej. Wybrano **regresję logistyczną** jako model prostszy i łatwiejszy do wyjaśnienia, bez utraty jakości.
+Regresja logistyczna i Random Forest dają praktycznie ten sam wynik, a HistGradientBoosting wypada nieco gorzej. Wybrano **regresję logistyczną** jako model prostszy i łatwiejszy do wyjaśnienia, bez utraty jakości.
 
 ## Strojenie
 
@@ -89,7 +88,7 @@ Próg wybrano na zbiorze walidacyjnym na podstawie oczekiwanego zysku, przy jawn
 - wartość uratowanego klienta: **780 $** (12 miesięcy × ok. 65 $ przychodu, bez uwzględnienia marży),
 - skuteczność oferty: **35%** zagrożonych klientów po kontakcie zostaje.
 
-Oczekiwany zysk z trafionego alarmu wynosi więc 0,35 × 780 − 100 = 173 $, a fałszywy alarm kosztuje 100 $. Maksymalny zysk daje **próg 0,38**: recall 0,674, precision 0,592, 426 alarmów (252 trafne, 174 fałszywe), 122 przeoczonych klientów, oczekiwany zysk ok. 26,2 tys. $ na zbiorze walidacyjnym (1409 klientów). Krzywa zysku jest płaska w zakresie progów 0,30–0,50 (zysk 24–26 tys. $), więc dokładna wartość progu nie jest krytyczna.
+Oczekiwany zysk z trafionego alarmu wynosi więc 0,35 × 780 − 100 = 173 $, a fałszywy alarm kosztuje 100 $. Maksymalny zysk daje **próg 0,38**: recall 0,674, precision 0,592, 426 alarmów (252 trafne, 174 fałszywe), 122 przeoczonych klientów, oczekiwany zysk ok. 26,2 tys. $ na zbiorze walidacyjnym (1409 klientów). Krzywa zysku jest płaska w zakresie progów 0,30-0,50 (zysk 24-26 tys. $), więc dokładna wartość progu nie jest krytyczna.
 
 ### Analiza wrażliwości na koszt kontaktu
 
@@ -123,15 +122,17 @@ Finalny model (regresja logistyczna, `C=1`) nauczono na zbiorze treningowym i wa
 
 Macierz pomyłek (wiersze: stan faktyczny, kolumny: predykcja): 833 trafnie „zostanie”, 202 fałszywe alarmy, 117 przeoczonych klientów, 257 trafnie wyłapanych odejść. Oczekiwany zysk netto przy założeniach kosztowych wynosi ok. 24,3 tys. $ na 1409 klientów (na walidacji: 26,2 tys. $).
 
-Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,642), co wskazuje, że model i wybór progu nie przeuczyły się na zbiorze walidacyjnym. Różnice mieszczą się w przedziałach niepewności. Wyniki wynikają z założeń kosztowych opisanych wyżej i nie zostały zweryfikowane w praktyce.
+Wynik jest zbliżony do walidacyjnego (recall 0,674, precision 0,592, PR-AUC 0,642), co wskazuje, że model i wybór progu nie przeuczyły się na zbiorze walidacyjnym. Wyniki wynikają z założeń kosztowych opisanych wyżej i nie zostały zweryfikowane w praktyce.
 
 ## Interpretacja modelu
 
-Największy wpływ zmniejszający ryzyko odejścia mają: długi staż (`tenure`), umowa dwuletnia, internet DSL oraz brak internetu. Największy wpływ zwiększający ryzyko mają: internet światłowodowy (Fiber optic), umowa miesięczna oraz wyższy `TotalCharges`. Przy równych pozostałych cechach umowa miesięczna zwiększa szanse odejścia ok. 3,9 raza wobec dwuletniej, a Fiber ok. 3,7 raza wobec DSL.
+Największy wpływ zmniejszający ryzyko odejścia mają: długi staż (`tenure`), umowa dwuletnia, internet DSL oraz brak internetu. Największy wpływ zwiększający ryzyko mają: internet Fiber optic, umowa miesięczna oraz wyższy `TotalCharges`. Przy równych pozostałych cechach umowa miesięczna zwiększa szanse odejścia ok. 3,9 raza wobec dwuletniej, a Fiber ok. 3,7 raza wobec DSL.
 
 Cechy, które w EDA wyglądały na silne, mają w modelu mniejszy samodzielny wpływ, bo ich efekt jest w dużej mierze wyjaśniony przez umowę, staż i rodzaj internetu: płatność elektronicznym czekiem (ok. 1,5 raza wyższe szanse wobec karty kredytowej), brak OnlineSecurity (ok. 1,4 raza) i brak TechSupport (ok. 1,3 raza), a także bycie seniorem (ok. 1,15 raza) i brak dzieci na utrzymaniu (ok. 1,2 raza). Cechy te nadal przydają się do wskazywania segmentów ryzyka (np. samotni seniorzy bez dzieci odchodzą w 49,2% przypadków, n=561), ale nie należy ich traktować jako głównych przyczyn odejść.
 
-Uwagi: (1) współczynniki skorelowanych cech (np. `MonthlyCharges`, Fiber, usługi streamingowe, `TotalCharges`) nie powinny być czytane pojedynczo; ujemny współczynnik `MonthlyCharges` nie oznacza, że wyższa opłata zmniejsza ryzyko; (2) wyniki opisują związki, a nie przyczyny, więc działania biznesowe należy sprawdzić testem A/B.
+Uwagi: 
+- współczynniki skorelowanych cech (np. `MonthlyCharges`, Fiber, usługi streamingowe, `TotalCharges`) nie powinny być czytane pojedynczo; ujemny współczynnik `MonthlyCharges` nie oznacza, że wyższa opłata zmniejsza ryzyko; 
+- wyniki opisują związki, a nie przyczyny, więc działania biznesowe należy sprawdzić testem A/B.
 
 ## Jak uruchomić
 
